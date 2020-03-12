@@ -1,5 +1,8 @@
 # NOTES on CLUSTER ANALYSIS
 
+
+> CHANGE LATER ...
+
 I am not sharing the raw data for this project since I used data from my own Fitbit archive. However, if you have a Fitbit and want to reproduce similar visuals with your own data, I've got you!
 
 Here's what you need to do to apply this to your own data:
@@ -14,4 +17,4 @@ On the code:
 - `make_graphs.Rmd` is the R notebook that generates all the contents of `graphs`
 - `make_graphs.nb.html` is the rendered notebook
 
-[Here's](https://rpubs.com/apalbright/fitbit-sleep) the link to the notebook on RPubs.
+[Here's](https://rpubs.com/Lulliter/cluster) the link to the notebook on RPubs.

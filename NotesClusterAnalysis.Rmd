@@ -3,9 +3,9 @@ title: "Notes about Cluster Analysis"
 author: "Luisa M. Mimmi"
 date: "`r format(Sys.time(), '%d %B, %Y')`"
 output:
+  html_notebook: default
   html_document:
     df_print: paged
-  html_notebook: default
 editor_options:
   chunk_output_type: inline
 ---
@@ -421,19 +421,19 @@ Most similar and dissimilar clients according to Gower distance:
 ```{r}
 # manipulation char -> factor
 Factors <- c("job", "marital", "education", "default", "housing", "loan", "contact", "month", "poutcome", "y")
-df[ ,Factors] <-  lapply( df[ ,Factors], as.factor)
-glimpse(df)
+bank[ ,Factors] <-  lapply( bank[ ,Factors], as.factor)
+glimpse(bank)
 
 #' Compute Gower distance with the daisy {cluster} function
-gower_dist <- daisy(df, metric = "gower")
+gower_dist <- daisy(bank, metric = "gower")
 gower_mat <- as.matrix(gower_dist)
 
 # Check...
 #' Print most similar clients
-df[which(gower_mat == min(gower_mat[gower_mat != min(gower_mat)]), arr.ind = TRUE)[1, ], ]
+bank[which(gower_mat == min(gower_mat[gower_mat != min(gower_mat)]), arr.ind = TRUE)[1, ], ]
 
 #' Print most dissimilar clients
-df[which(gower_mat == max(gower_mat[gower_mat != max(gower_mat)]), arr.ind = TRUE)[1, ], ]
+bank[which(gower_mat == max(gower_mat[gower_mat != max(gower_mat)]), arr.ind = TRUE)[1, ], ]
  
 ```
 
@@ -472,7 +472,7 @@ Cluster Interpretation
 k <- 3
 pam_fit <- pam(gower_dist, diss = TRUE, k)
 
-pam_results <- df %>%
+pam_results <- bank %>%
   mutate(cluster = pam_fit$clustering) %>%
   group_by(cluster) %>%
   do(the_summary = summary(.))
@@ -486,7 +486,7 @@ Here one can attempt to derive some common patterns for clients within a cluster
 
 ```{r}
 # BTW, in PAM alg, medoids serve as exemplars of each clusters
-df[pam_fit$medoids,]
+bank[pam_fit$medoids,]
 ```
 
 
