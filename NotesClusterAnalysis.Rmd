@@ -1,0 +1,527 @@
+---
+title: "Notes about Cluster Analysis"
+author: "Luisa M. Mimmi"
+date: "`r format(Sys.time(), '%d %B, %Y')`"
+output:
+  html_document:
+    df_print: paged
+  html_notebook: default
+editor_options:
+  chunk_output_type: inline
+---
+
+# Intro
+This is a recap of what I have learned on cluster analysis. I basically reproduced examples found in various sources (acknowledged at bottom), to learn how to implement the algorithms in R.
+
+# Brief theory about Cluster Analysis
+
+GOAL: putting _like with like_
+It is considered `Exploratory Data Mining` bc it helps tease out relationships in large datasets 
+
+DIFFERENCE FROM CLASSIFICATION: `Classification` identifies and matches obs. with EXISTING label/group (spam vs non spam / cats vs dogs) -- `Clustering` is "pragmatic grouping" done for a reason that make sense to me. (**THESE ARE NOT NATURAL GROUPINGS, THESE ARE GROUPS OF CONVENIENCE**). Its success depends on how well it serves my purpose. 
+
+(*) RESULTS WILL CHANGE A LOT DEPENDING ON THE VARIABLES YOU USE!!!!!!
+(*) Some of the algorithm REQUIRE CONTINUOUS DATA 
+
+
+EXAMPLES:
+
++ marketing segmentation  - similar customers to recommend the same things
++ medicine - similar patients
++ music - genre on playlist that I want together
+
+ALGORITHMs:
+
++ by **distance** (finds only convex clusters / these models are slow for big data...)
+	- euclidean distance
+	- connectivity models
+	- hierarchical diagrams
+	- joining or splitting
+
++ by **distance from centroid**  (only convex clusters / generally of similar size, you must pick k)
+`centroid is defined by a mean`
+	- (mean for every group)
+	- k-means clustering
+
++ by **density of data** (connects dense regions and draw a perimeter around / )
+	- connected dense regions in k-dimensions
+ 	+ it can model NON convex clusters
+	+ it is possible to sort of ignore outliers 
+	- hard to describe (by parametric distrib function)
+	
++ by **distributional model**
+	- clusters as statistical distributions 
+	 (ex. multivariate normal)
+	- prone to overfitting
+	- good to see correlations b/w attributes in data 
+	- limited to convex clusters 
+
+
+## Three major kinds of clustering:
+   1. `Hierarchical`: Start separate and combine
+   2. Split into set number of clusters (e.g., `kmeans`)
+   3. Dividing: Start with a single group and split
+
+
+# EXAMPLES
+
+I am using 2 differnt datasets:
+
+	1. a dataset `states` with searches made in collected at US states and information about 5 personality traits. Data and hypothesis taken from "Divided We Stand: Three Psychological Regions of the United States andTheir Political, Economic, Social, and Health Correlates" https://www.apa.org/pubs/journals/releases/psp-a0034434.pdf
+	2. a (subset of a) bank marketing dataset `bank`
+
+
+## Set up 
+```{r setup, eval= TRUE, echo = FALSE, message=FALSE, warning=FALSE}
+## I am  executing bc it for the blog post
+# knitr::opts_chunk$set(
+# 	echo = TRUE,
+# 	message = FALSE,
+# 	warning = FALSE,
+# 	results = "hide",
+# 	tidy = TRUE,
+# 	fig.show = "asis",
+# 	fig.align = "center")
+
+# packg
+if (!require("pacman")) install.packages("pacman")
+p_load(here,
+		 cluster,
+		 Rtsne, 
+		 dplyr,
+		 ggplot2,
+		 readr)
+
+	# PerformanceAnalytics,
+	# 	 ggcorrplot,
+	# 	 ggpubr,
+	# 	 GGally,
+	# 	 kableExtra,
+	# 	 pander, 
+	# 	 gmodels, 
+	# 	 caret, 
+	# 	 formatR,
+	# 	 e1071,
+	# 	 caTools)
+
+
+# Load data
+df <- read_csv2(here::here("bank.csv") )
+
+# I take a smaller sub-sample N =400
+bank <- df[sample(nrow(df), 400), ]
+
+rm(.Last.value, df)
+```
+
+# HIERARCHICAL CLUSTERING 
+
+### IV.a) Hierarchical clustering / `stats::hclust` / data = `states`
+
+STEPS:
+	1. Create distance matrix (Euclidean)
+	2. PErform hierarchical cluster analysis on a set of dissimilarities (distance)
+	3. Plot 
+
+(*) Here only numeric variables are considered
+
+```{r}
+# Source Linkedin Data Mining Course (DM_03_03.R)
+
+# LOAD DATA ################################################
+states <- read.csv(here::here( "states.csv"), header = T)
+
+colnames(states)
+
+# Save numerical data only
+st <- states[, 3:27]
+
+# use the State Abbreviation as Index of rows so they don't get analized 
+row.names(st) <- states[, 2]
+colnames(st)
+
+# CLUSTERING  (hierarchical clustering)###############################################
+
+# 1) Create distance matrix (Euclidean)
+d <- dist(st)
+
+# 2) Hierarchical clustering
+c <- hclust(d, method = "complete") # or one of "ward.D", "ward.D2", "single", "complete", "average" (= UPGMA), "mcquitty" (= WPGMA), "median" (= WPGMC) or "centroid" (= UPGMC).
+
+c # Info on clustering
+
+# 3) Plot dendrogram of clusters
+#Naming the file
+png(file = "graphs/dendrogramALLsearches.png")
+plot(c, 
+	  main = "Cluster with All Searches and Personality")
+dev.off() #Saving the file
+
+# For comparison purpose, we create a df with Sports search data only
+sports <- st[, 8:11]
+head(sports) 
+
+# For comparison, TRY AND LOOK USING ONLY THE SPORT SEARCHES
+# 1//2/3) Or nest commands in one line (for sports data)
+#Naming the file
+png(file = "graphs/dendrogramSPORTsearches.png")
+plot(hclust(dist(sports)),
+	  main = "Sports Searches")
+dev.off() #Saving the file
+```
+
+### IV.b) Hierarchical clustering / `function` / data = mtcars   
+
+```{r}
+# Conducting a cluster analysis
+
+# Load data
+#?mtcars
+data(mtcars)
+mtcars[1:5, ]
+mtcars1 <- mtcars[, c(1:4, 6:7, 9:11)]  # Select variables
+mtcars1[1:5, ]
+
+# -------- We'll use hierarchical clustering
+# Need distance matrix (dissimilarity matrix)
+d <- dist(mtcars1)
+head(d)  # Huge matrix
+
+# Use distance matrix for clustering
+c <- hclust(d)
+c
+
+# Plot dendrogram of clusters
+plot(c)
+
+# Put observations in groups
+# Need to specify either k = groups or h = height
+g3 <- cutree(c, k = 3)  # "g3" = "groups 3"
+# cutree(hcmt, h = 230) will give same result
+g3
+
+# Or do several levels of groups at once
+# "gm" = "groups/multiple"
+gm <- cutree(c, k = 2:5) # or k = c(2, 4)
+gm
+
+# Draw boxes around clusters
+rect.hclust(c, k = 2, border = "gray")
+rect.hclust(c, k = 3, border = "blue")
+rect.hclust(c, k = 4, border = "green4")
+rect.hclust(c, k = 5, border = "darkred")
+
+```
+
+# k-means CLUSTERING
+
+### V) k-means Hierarchical clustering / `function` / data = 
+ 
+
+K-means clustering is an _unsupervised_  machine learning algorithm for clustering `n` observations into `k` clusters where k is predefined or user-defined constant
+It finds the minimum total **distance** of obs. form the `centroid` of the (best) cluster (for all dimensions)
+
+CONDITIONS: 
+
++ (only convex clusters similar size, you pick k)
++  _hyperparameter_ `k` = the number of clusters and has to be set beforehand. k should be picked as a # that is in the bal park of what you are willing to act on (eg. 5 if I want 5 segments of donors)
++ Where (through an iterative approach) it finds:
+	+ The distance between data points within clusters should be as small as possible.
+   + The distance of the centroids (= centres of the clusters) should be as big as possible.
+   
++ requires to scale the variables before clustering the data   
+
+APPLICATIONS: 
+data that has a smaller number of dimensions, is numeric, and is continuous. such as document clustering, identifying crime-prone areas, customer segmentation, insurance fraud detection, public transport data analysis, clustering of IT alerts…etc.
+
+### V.a) k-means Hierarchical clustering / `function` / data = mtcars
+```{r kmmen}
+# ======================================================
+mtcars1 <- mtcars[, c(1:4, 6:7, 9:11)]  # Select variables
+
+# k-means clustering - I pick 3 clusters 
+km <- stats::kmeans(mtcars1, centers=3)
+km
+
+# Graph based on k-means
+require(cluster)
+clusplot(mtcars1,  # data frame
+         km$cluster,  # cluster data
+         color = TRUE,  # color
+#          shade = TRUE,  # Lines in clusters
+         lines = 3,  # Lines connecting centroids
+         labels = 2)  # Labels clusters and cases
+
+# here I get the centers
+km$centers
+
+# here I get the cluster assignment (vector)
+km$cluster
+
+# You can evaluate the clusters by looking at $totss and $betweenss.
+km$totss
+km$withinss # sum of the square of the distance from each data point to the cluster center.  Lower is better. (high withinss would indicate either outliers are in your data or you need to create more clusters.)
+km$betweenss # sum of the squared distance between cluster centers.  Ideally you want cluster centers far apart from each other.
+ 
+
+# ======================================================
+# k-means clustering - I pick 5 clusters 
+km2 <- kmeans(mtcars1, 5)
+km2
+
+# Graph based on k-means
+require(cluster)
+clusplot(mtcars1,  # data frame
+         km2$cluster,  # cluster data
+         color = TRUE,  # color
+#          shade = TRUE,  # Lines in clusters
+         lines = 3,  # Lines connecting centroids
+         labels = 2)  # Labels clusters and cases
+
+ # here I get the centers
+km2$centers
+
+# You can evaluate the clusters by looking at $totss and $betweenss.
+km2$totss
+km2$withinss # sum of the square of the distance from each data point to the cluster center.  Lower is better. (high withinss would indicate either outliers are in your data or you need to create more clusters.)
+km2$betweenss # sum of the squared distance between cluster centers.  Ideally you want cluster centers far apart from each other.
+
+
+# ======================================================
+# Find ideal k
+rng<-2:20 #K from 2 to 20
+tries <-100 #Run the k Means algorithm 100 times
+avg.totw.ss <-integer(length(rng)) #Set up an empty vector to hold all of points
+
+for(v in rng){ # For each value of the range variable
+ v.totw.ss <-integer(tries) #Set up an empty vector to hold the 100 tries
+ for(i in 1:tries){
+ k.temp <-kmeans(mtcars1,centers=v) #Run kmeans
+ v.totw.ss[i] <-k.temp$tot.withinss#Store the total withinss
+ }
+ avg.totw.ss[v-1] <-mean(v.totw.ss) #Average the 100 total withinss
+}
+
+plot(rng,avg.totw.ss,type="b", main="Total Within SS by Various K",
+ ylab="Average Total Within Sum of Squares",
+ xlab="Value of K")
+
+# Somewhere around K = 5 we start losing dramatic gains.  So I’m satisfied with 5 clusters.
+```
+
+
+
+
+### V.b) k-means Hierarchical clustering / `function` / data = 
+Source: http://blog.ephorie.de/learning-data-science-understanding-and-using-k-means-clustering
+
+http://www.learnbymarketing.com/tutorials/k-means-clustering-in-r-example/
+
+Because there are too many possible combinations of all possible clusters comprising all possible data points k-means follows an iterative approach called **_expectation-maximization algorithm_**.:
+    1. Initialization: assign clusters randomly to all data points
+    2. E-step (for expectation): assign each observation to the “nearest” (based on Euclidean distance) cluster
+    3. M-step (for maximization): determine new centroids based on the mean of assigned objects
+    4. Repeat steps 3 and 4 until no further changes occur
+
+```{r kmmenSTEP}
+n <- 3 # no. of centroids
+set.seed(1415) # set seed for reproducibility
+ 
+M1 <- matrix(round(runif(100, 1, 5), 1), ncol = 2)
+M2 <- matrix(round(runif(100, 7, 12), 1), ncol = 2)
+M3 <- matrix(round(runif(100, 20, 25), 1), ncol = 2)
+M <- rbind(M1, M2, M3)
+ 
+C <- M[1:n, ] # define centroids as first n objects
+obs <- length(M) / 2
+A <- sample(1:n, obs, replace = TRUE) # assign objects to centroids at random
+colors <- seq(10, 200, 25) 
+
+# helper function for plotting the steps 
+clusterplot <- function(M, C, txt) {
+  plot(M, main = txt, xlab = "", ylab = "")
+  for(i in 1:n) {
+    points(C[i, , drop = FALSE], pch = 23, lwd = 3, col = colors[i])
+    points(M[A == i, , drop = FALSE], col = colors[i])    
+  }
+}
+clusterplot(M, C, "Initialization")
+
+#------------k-means algorithm iterative
+# diamonds are the Centroids
+
+repeat {
+  # calculate Euclidean distance between objects and centroids
+  D <- matrix(data = NA, nrow = n, ncol = obs)
+  for(i in 1:n) {
+    for(j in 1:obs) {
+      D[i, j] <- sqrt((M[j, 1] - C[i, 1])^2 + (M[j, 2] - C[i, 2])^2)
+    }
+  }
+  O <- A
+   
+  ## E-step: parameters are fixed, distributions are optimized
+  A <- max.col(t(-D)) # assign objects to centroids
+  if(all(O == A)) break # if no change stop
+  clusterplot(M, C, "E-step")
+   
+  ## M-step: distributions are fixed, parameters are optimized
+  # determine new centroids based on mean of assigned objects
+  for(i in 1:n) {
+    C[i, ] <- apply(M[A == i, , drop = FALSE], 2, mean)
+  }
+  clusterplot(M, C, "M-step")
+}
+
+#Check results 
+(custom <- C[order(C[ , 1]), ])
+##        [,1]   [,2]
+## [1,]  3.008  2.740
+## [2,]  9.518  9.326
+## [3,] 22.754 22.396
+
+
+#------------k-means algorithm BASE R
+cl <- kmeans(M, n)
+clusterplot(M, cl$centers, "Base R")
+
+#Check results 
+(base <- cl$centers[order(cl$centers[ , 1]), ])
+##     [,1]   [,2]
+## 2  3.008  2.740
+## 1  9.518  9.326
+## 3 22.754 22.396
+
+# same!
+```
+
+
+### VI)  PAM (partitioning around medoids) clustering/ `function` / data = bank   
+Source: https://towardsdatascience.com/clustering-on-mixed-type-data-8bbd0a2569c3
+copied from(?)http://dpmartin42.github.io/posts/r/cluster-mixed-types 
+
+#### Example k-medoids (Partitioning around medoids) with bank marketing dataset
+In the context of unsupervised classification, we may need to analyze datasets made of `mixed-type data`, where numeric, nominal (categorical, not ordered) or ordinal (categorical, ordered) features coexist. 
+
++ similarity measured with distance (`Gower distance` ~ avg of partial dissimilarity ranges )
++ PAM clustering algorithm (partitioning around medoids)
++ `k-medoid` is a classical partitioning technique of clustering that clusters the data set of n objects into k clusters known a priori.
++ `silhouette coefficient` is used to determine optimal  # of clusters (we don't know a priori)
++ bank marketing dataset 
+
+ 
+
+We first need to define some notion of (dis)similarity between observations. A popular choice for clustering is Euclidean distance, but only valid for continuous variables
+We have to use a distance metric that can handle mixed data types --> `Gower distance`.
+	
+	* pros: Intuitive to understand and straightforward to calculate
+	* cons: Sensitive to non-normality and outliers in continuous variables --> transformations as a pre-processing step might be necessary. 
+
+Most similar and dissimilar clients according to Gower distance:
+```{r}
+# manipulation char -> factor
+Factors <- c("job", "marital", "education", "default", "housing", "loan", "contact", "month", "poutcome", "y")
+df[ ,Factors] <-  lapply( df[ ,Factors], as.factor)
+glimpse(df)
+
+#' Compute Gower distance with the daisy {cluster} function
+gower_dist <- daisy(df, metric = "gower")
+gower_mat <- as.matrix(gower_dist)
+
+# Check...
+#' Print most similar clients
+df[which(gower_mat == min(gower_mat[gower_mat != min(gower_mat)]), arr.ind = TRUE)[1, ], ]
+
+#' Print most dissimilar clients
+df[which(gower_mat == max(gower_mat[gower_mat != max(gower_mat)]), arr.ind = TRUE)[1, ], ]
+ 
+```
+
+We use `Partitioning around medoids  (PAM) clustering algorithm` = an iterative clustering procedure with the following steps:
+
+   1) Choose k random entities to become the medoids
+   2) Assign every entity to its closest medoid (using our custom distance matrix in this case)
+   3) For each cluster, identify the observation that would yield the lowest average distance if it were to be re-assigned as the medoid. If so, make this observation the new medoid.
+   4)  If at least one medoid has changed, return to step 2. Otherwise, end the algorithm.
+
+But first, we look for right number of clusters with `silhoutte width` [-1, 1] (where higher is better)
+```{r}
+sil_width <- c(NA)
+
+# calculating silhouette width for clusters ranging from 2 to 8 for the PAM algorithm
+for(i in 2:8){  
+  pam_fit <- pam(gower_dist, diss = TRUE, k = i)  
+  sil_width[i] <- pam_fit$silinfo$avg.width  
+} 
+
+# Plot sihouette width (higher is better)
+plot(1:8, sil_width,
+   xlab = "Number of clusters",
+   ylab = "Silhouette Width")
+lines(1:8, sil_width)
+
+```
+The `silhouette coefficient` contrasts the average distance to elements in the same cluster with the average distance to elements in other clusters. Objects with a high silhouette value are considered well clustered, objects with a low value may be outliers. This index works well with k-medoids clustering, and is also used to determine the optimal number of clusters. Please read the Wikipedia page for further details around computation and interpretation.
+
+here --> pick 3 
+
+Cluster Interpretation
+
+```{r}
+#Summary of each cluster
+k <- 3
+pam_fit <- pam(gower_dist, diss = TRUE, k)
+
+pam_results <- df %>%
+  mutate(cluster = pam_fit$clustering) %>%
+  group_by(cluster) %>%
+  do(the_summary = summary(.))
+
+pam_results$the_summary
+
+
+```
+
+Here one can attempt to derive some common patterns for clients within a cluster. As an example, cluster 1 is made of “management x tertiary x no default x no housing” clients, cluster 2 is made of “blue-collar x secondary x no default x housing” clients, etc.
+
+```{r}
+# BTW, in PAM alg, medoids serve as exemplars of each clusters
+df[pam_fit$medoids,]
+```
+
+
+
+Visualization in a lower dimensional space wwith t-distributed stochastic neighborhood embedding, or `t-SNE`
+```{r}
+# t-SNE = dimension reduction technique that tries to preserve local structure to make clusters visible in a 2D or 3D visualization. While typically utilizes Euclidean distance, it can handle a custom distance metric  
+tsne_obj <- Rtsne(gower_dist, is_distance = TRUE)
+
+tsne_data <- tsne_obj$Y %>%
+  data.frame() %>%
+  setNames(c("X", "Y")) %>%
+  mutate(cluster = factor(pam_fit$clustering))
+
+ggplot(aes(x = X, y = Y), data = tsne_data) +
+  geom_point(aes(color = cluster))
+```
+
+Alternatives (for clustering mixed data):
+https://www.researchgate.net/publication/323422280_kamila_Clustering_Mixed-Type_Data_in_R_and_Hadoop
+
+
+
+***
+
+
+
+
+
+# Resources 
+
++  LinkedIn Premium course "Data Mining"https://www.linkedin.com/learning/data-science-foundations-data-mining/clustering-in-r
++ https://www.kdnuggets.com/2016/09/comparing-clustering-techniques-concise-technical-overview.html
++ http://www.learnbymarketing.com/tutorials/ (kmeans clustering)
++ https://www.datasciencecentral.com/profiles/blogs/14-great-articles-and-tutorials-on-clustering
++ IADB ML course 
++ Hastie, Tibshirani, Firedman "The elements of Statistical Learning", 2009
+
