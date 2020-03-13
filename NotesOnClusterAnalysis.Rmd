@@ -1,14 +1,10 @@
 ---
-title: "Notes about Cluster Analysis"
-author: "Luisa M. Mimmi"
+title: "NotesOnClusterAnaysis"
+author: "Luisa M Mimmi"
 date: "`r format(Sys.time(), '%d %B, %Y')`"
-output:
-  html_notebook: default
-  html_document:
-    df_print: paged
-editor_options:
-  chunk_output_type: inline
+output: html_document
 ---
+ 
 
 # Intro
 This is a recap of what I have learned on cluster analysis. I basically reproduced examples found in various sources (acknowledged at bottom), to learn how to implement the algorithms in R.
@@ -86,7 +82,8 @@ I am using 2 differnt datasets:
 # packg
 if (!require("pacman")) install.packages("pacman")
 p_load(here,
-		 cluster,
+		 cluster,dendextend,fpc,
+		 stats,
 		 Rtsne, 
 		 dplyr,
 		 ggplot2,
@@ -104,20 +101,23 @@ p_load(here,
 	# 	 e1071,
 	# 	 caTools)
 
+# LOAD dataset 1) ################################################
+states <- read.csv(here::here( "states.csv"), header = T)
 
-# Load data
+
+# Load dataset 2) 
 df <- read_csv2(here::here("bank.csv") )
-
 # I take a smaller sub-sample N =400
 bank <- df[sample(nrow(df), 400), ]
 
-rm(.Last.value, df)
+rm(  df)
 ```
 
 # HIERARCHICAL CLUSTERING 
 
 ### IV.a) Hierarchical clustering / `stats::hclust` / data = `states`
 
+Source Linkedin Data Mining Course (DM_03_03.R)
 STEPS:
 	1. Create distance matrix (Euclidean)
 	2. PErform hierarchical cluster analysis on a set of dissimilarities (distance)
@@ -126,18 +126,14 @@ STEPS:
 (*) Here only numeric variables are considered
 
 ```{r}
-# Source Linkedin Data Mining Course (DM_03_03.R)
-
-# LOAD DATA ################################################
-states <- read.csv(here::here( "states.csv"), header = T)
-
+# Check
 colnames(states)
 
 # Save numerical data only
 st <- states[, 3:27]
 
-# use the State Abbreviation as Index of rows so they don't get analized 
-row.names(st) <- states[, 2]
+# use the State Abbreviation as Index of rows (so they don't get analized)
+row.names(st) <- states[, 2] # set row names for df 
 colnames(st)
 
 # CLUSTERING  (hierarchical clustering)###############################################
@@ -150,50 +146,17 @@ c <- hclust(d, method = "complete") # or one of "ward.D", "ward.D2", "single", "
 
 c # Info on clustering
 
-# 3) Plot dendrogram of clusters
-#Naming the file
-png(file = "graphs/dendrogramALLsearches.png")
-plot(c, 
-	  main = "Cluster with All Searches and Personality")
-dev.off() #Saving the file
+# 3.a) Plot dendrogram of clusters
+plot(c  , main = "Cluster with All Searches and Personality")
 
-# For comparison purpose, we create a df with Sports search data only
-sports <- st[, 8:11]
-head(sports) 
+# 4.a) Cut the tree (resulting from hclust) into several groups  
+    # Naming the file
+    png(file = "graphs/dendrogramALLsearches.png")
+# plot 
+plot(c) # , main = "Cluster with All Searches and Personality")
+ 
 
-# For comparison, TRY AND LOOK USING ONLY THE SPORT SEARCHES
-# 1//2/3) Or nest commands in one line (for sports data)
-#Naming the file
-png(file = "graphs/dendrogramSPORTsearches.png")
-plot(hclust(dist(sports)),
-	  main = "Sports Searches")
-dev.off() #Saving the file
-```
-
-### IV.b) Hierarchical clustering / `function` / data = mtcars   
-
-```{r}
-# Conducting a cluster analysis
-
-# Load data
-#?mtcars
-data(mtcars)
-mtcars[1:5, ]
-mtcars1 <- mtcars[, c(1:4, 6:7, 9:11)]  # Select variables
-mtcars1[1:5, ]
-
-# -------- We'll use hierarchical clustering
-# Need distance matrix (dissimilarity matrix)
-d <- dist(mtcars1)
-head(d)  # Huge matrix
-
-# Use distance matrix for clustering
-c <- hclust(d)
-c
-
-# Plot dendrogram of clusters
-plot(c)
-
+# 4) Cut the tree (resulting from hclust) into several groups         
 # Put observations in groups
 # Need to specify either k = groups or h = height
 g3 <- cutree(c, k = 3)  # "g3" = "groups 3"
@@ -210,16 +173,62 @@ rect.hclust(c, k = 2, border = "gray")
 rect.hclust(c, k = 3, border = "blue")
 rect.hclust(c, k = 4, border = "green4")
 rect.hclust(c, k = 5, border = "darkred")
+    #Saving the file
+   dev.off() 
+
+
+
+# 3.b) Plot dendrogram of clusters
+dend <- c %>% stats::as.dendrogram()
+    # Naming the file
+    png(file = "graphs/dendrogramALLsearches2.png")
+plot(dend)
+
+
+# 4.b) Cut the tree (resulting from hclust) into several groups         
+plot(dend)
+dendextend::rect.dendrogram(dend, 
+                k = 3,
+                border = 2:4, # colors
+                #density = 2, 
+                text = c("1", "b", "miao"), 
+                text_cex = 3
+)
+
+# or 
+# Vectorize(rect.dendrogram, "k")(dend, 4:5, border = 6)
+    #Saving the file
+   dev.off() 
+```
+ 
+
+
+For comparison purpose, we create a df with Sports search data only
+```{r}
+  
+        # sports <- st[, 8:11]
+        # head(sports) 
+        # 
+        # # For comparison, TRY AND LOOK USING ONLY THE SPORT SEARCHES
+        # # 1//2/3) Or nest commands in one line (for sports data)
+        # #Naming the file
+        # png(file = "graphs/dendrogramSPORTsearches.png")
+        # plot(hclust(dist(sports)),
+        # 	  main = "Sports Searches")
+        # dev.off() #Saving the file
+
 
 ```
 
+
 # k-means CLUSTERING
 
-### V) k-means Hierarchical clustering / `function` / data = 
+### V) k-means clustering / `function` / data = 
  
-
-K-means clustering is an _unsupervised_  machine learning algorithm for clustering `n` observations into `k` clusters where k is predefined or user-defined constant
+K-means clustering is an _unsupervised_  machine learning algorithm for clustering `n` observations into `k` clusters where k is predefined or user-defined constant. 
 It finds the minimum total **distance** of obs. form the `centroid` of the (best) cluster (for all dimensions)
+
+It is a _partitioning_ algorithm. 
 
 CONDITIONS: 
 
@@ -229,49 +238,48 @@ CONDITIONS:
 	+ The distance between data points within clusters should be as small as possible.
    + The distance of the centroids (= centres of the clusters) should be as big as possible.
    
-+ requires to scale the variables before clustering the data   
-
 APPLICATIONS: 
-data that has a smaller number of dimensions, is numeric, and is continuous. such as document clustering, identifying crime-prone areas, customer segmentation, insurance fraud detection, public transport data analysis, clustering of IT alerts…etc.
+data has a smaller number of dimensions, is numeric, and is continuous. such as document clustering, identifying crime-prone areas, customer segmentation, insurance fraud detection, public transport data analysis, clustering of IT alerts…etc.
 
-### V.a) k-means Hierarchical clustering / `function` / data = mtcars
-```{r kmmen}
-# ======================================================
-mtcars1 <- mtcars[, c(1:4, 6:7, 9:11)]  # Select variables
+(*) We can scale/standardize the variables before clustering the data --> give same importance to each variable in caluculating distances
 
-# k-means clustering - I pick 3 clusters 
-km <- stats::kmeans(mtcars1, centers=3)
-km
+
+### V.a) k-means clustering / `stats::kmeans` / data = mtcars
+```{r kmean}
+bank1 <- bank[, c(1,6, 12, 13, 14)]  # Select num variables
+
+# ====================================================== OPION k = 3 
+km1 <- stats::kmeans(bank1, centers=3)
+km1
+
 
 # Graph based on k-means
-require(cluster)
-clusplot(mtcars1,  # data frame
-         km$cluster,  # cluster data
+cluster::clusplot(bank1,  # data frame
+         km1$cluster,  # cluster data
          color = TRUE,  # color
 #          shade = TRUE,  # Lines in clusters
          lines = 3,  # Lines connecting centroids
          labels = 2)  # Labels clusters and cases
 
 # here I get the centers
-km$centers
+km1$centers
 
 # here I get the cluster assignment (vector)
-km$cluster
+km1$cluster
 
 # You can evaluate the clusters by looking at $totss and $betweenss.
-km$totss
-km$withinss # sum of the square of the distance from each data point to the cluster center.  Lower is better. (high withinss would indicate either outliers are in your data or you need to create more clusters.)
-km$betweenss # sum of the squared distance between cluster centers.  Ideally you want cluster centers far apart from each other.
- 
+km1$totss
+km1$betweenss # sum of the squared distance between cluster centers.  Ideally you want cluster centers far apart from each other.
+km1$withinss # sum of the square of the distance from each data point to the cluster center.  Lower is better. (high withinss would indicate either outliers are in your data or you need to create more clusters.)
 
-# ======================================================
+
+# ====================================================== OPION k = 5 
 # k-means clustering - I pick 5 clusters 
-km2 <- kmeans(mtcars1, 5)
+km2 <- kmeans(bank1, 5)
 km2
 
 # Graph based on k-means
-require(cluster)
-clusplot(mtcars1,  # data frame
+clusplot(bank1,  # data frame
          km2$cluster,  # cluster data
          color = TRUE,  # color
 #          shade = TRUE,  # Lines in clusters
@@ -286,17 +294,17 @@ km2$totss
 km2$withinss # sum of the square of the distance from each data point to the cluster center.  Lower is better. (high withinss would indicate either outliers are in your data or you need to create more clusters.)
 km2$betweenss # sum of the squared distance between cluster centers.  Ideally you want cluster centers far apart from each other.
 
-
-# ======================================================
-# Find ideal k
-rng<-2:20 #K from 2 to 20
-tries <-100 #Run the k Means algorithm 100 times
+ 
+# ======================================================  Finding optimal k -->  5 
+# ----- Find ideal k
+rng <- 2:20 # range of k =  from 2 to 20
+tries <- 100 #Run the k Means algorithm 100 times
 avg.totw.ss <-integer(length(rng)) #Set up an empty vector to hold all of points
 
 for(v in rng){ # For each value of the range variable
  v.totw.ss <-integer(tries) #Set up an empty vector to hold the 100 tries
  for(i in 1:tries){
- k.temp <-kmeans(mtcars1,centers=v) #Run kmeans
+ k.temp <-kmeans(bank1, centers=v) #Run kmeans
  v.totw.ss[i] <-k.temp$tot.withinss#Store the total withinss
  }
  avg.totw.ss[v-1] <-mean(v.totw.ss) #Average the 100 total withinss
@@ -308,11 +316,37 @@ plot(rng,avg.totw.ss,type="b", main="Total Within SS by Various K",
 
 # Somewhere around K = 5 we start losing dramatic gains.  So I’m satisfied with 5 clusters.
 ```
+(*) Looks like I might need to rescale to get meaningful clusters 
 
 
 
+#### What if I rescale the data? 
+```{r kmeanRESCALED}
+# ========== standardize variables 
+bank1_scaled<- scale(bank1) 
 
-### V.b) k-means Hierarchical clustering / `function` / data = 
+ 
+# ==========  Re-cluster on bank1_scaled df (k = 5)
+# k-means clustering - I pick 5 clusters 
+km3 <- kmeans(bank1_scaled, 5)
+km3
+
+# ========== Plot clusters  based on k-means -- 2 most important variables 
+clusplot(bank1_scaled,  # data frame
+         km2$cluster,  # cluster data
+         color = TRUE,  # color
+          shade = TRUE,  # Lines in clusters
+         lines = 3,  # Lines connecting centroids
+         labels = 2
+         )  # Labels clusters and cases
+
+# =========== Centroid Plot against 1st 2 discriminant functions
+library(fpc)
+fpc::plotcluster(x = bank1_scaled, km3$cluster) 
+```
+
+
+### V.b) k-means clustering / `function` / data = 
 Source: http://blog.ephorie.de/learning-data-science-understanding-and-using-k-means-clustering
 
 http://www.learnbymarketing.com/tutorials/k-means-clustering-in-r-example/
